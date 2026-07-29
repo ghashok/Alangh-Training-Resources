@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Certificate Verification | Alangh Academy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-0:#04181f;
+    --bg-1:#0a2b35;
+    --panel-line: rgba(120,220,255,0.14);
+    --cyan:#2fd9f5;
+    --cyan-bright:#7cf3ff;
+    --cyan-dim:#0e6d84;
+    --mint:#4dffb8;
+    --text-hi:#eaf6fb;
+    --text-mid:#9fc3d3;
+    --text-low:#5d7d8c;
+    --danger:#ff6b6b;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background: radial-gradient(120% 90% at 50% -10%, #12414e 0%, var(--bg-1) 45%, var(--bg-0) 100%);
+    color: var(--text-hi);
+    font-family:'Inter', sans-serif;
+    min-height:100vh;
+    overflow-x:hidden;
+    position:relative;
+  }
+
+  canvas#scene{
+    position:fixed;
+    inset:0;
+    width:100%;
+    height:100%;
+    z-index:0;
+  }
+
+  .scanline{
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+    z-index:1;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(255,255,255,0.012) 0px,
+      rgba(255,255,255,0.012) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    mix-blend-mode: overlay;
+  }
+
+  /* ---------- MAIN ---------- */
+  main{
+    position:relative;
+    z-index:5;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    min-height: 100vh;
+    padding: 70px 20px 90px;
+  }
+
+  /* ---------- CONTENT (sits on top of the canvas scene) ---------- */
+  .content-col{
+    position:relative;
+    z-index:5;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    max-width:640px;
+    width:100%;
+  }
+
+  .eyebrow{
+    font-family:'Space Grotesk', sans-serif;
+    text-transform:uppercase;
+    letter-spacing: 4px;
+    font-size:16px;
+    font-weight:700;
+    color: var(--cyan-bright);
+    margin-bottom:26px;
+    display:flex;
+    align-items:center;
+    gap:14px;
+    text-shadow: 0 0 18px rgba(47,217,245,0.85), 0 0 40px rgba(47,217,245,0.4), 0 2px 10px rgba(0,0,0,0.9);
+  }
+  .eyebrow::before, .eyebrow::after{
+    content:'';
+    width:34px; height:1px;
+    background: linear-gradient(to right, transparent, var(--cyan-dim));
+  }
+  .eyebrow::after{ background: linear-gradient(to left, transparent, var(--cyan-dim)); }
+
+  .status-pill{
+    display:inline-flex;
+    align-items:center;
+    gap:9px;
+    margin-bottom: 22px;
+    padding: 8px 20px;
+    border-radius:100px;
+    background: rgba(77,255,184,0.08);
+    border:1px solid rgba(77,255,184,0.4);
+    color: var(--mint);
+    font-weight:600;
+    font-size:14px;
+    letter-spacing:0.5px;
+    box-shadow: 0 0 24px rgba(77,255,184,0.12);
+  }
+  .status-dot{
+    width:8px; height:8px;
+    border-radius:50%;
+    background: var(--mint);
+    box-shadow: 0 0 10px 2px rgba(77,255,184,0.9);
+    animation: dotPulse 1.8s ease-in-out infinite;
+  }
+  @keyframes dotPulse{
+    0%,100%{ opacity:1; }
+    50%{ opacity:0.35; }
+  }
+
+  /* ---------- CERT CARD ---------- */
+  .cert-card{
+    width:100%;
+    background: linear-gradient(180deg, rgba(8,20,30,0.22), rgba(5,12,20,0.32));
+    border:1px solid rgba(120,220,255,0.22);
+    border-radius:18px;
+    padding: 42px 44px 34px;
+    text-align:center;
+    position:relative;
+    backdrop-filter: saturate(115%);
+    box-shadow: 0 0 0 1px rgba(47,217,245,0.05), 0 30px 60px -20px rgba(0,0,0,0.5);
+  }
+  .cert-card::before{
+    content:'';
+    position:absolute;
+    top:0; left:14%; right:14%;
+    height:1px;
+    background: linear-gradient(to right, transparent, var(--cyan), transparent);
+    opacity:0.6;
+  }
+
+  .cert-title{
+    font-family:'Space Grotesk', sans-serif;
+    font-size: 30px;
+    font-weight:700;
+    line-height:1.25;
+    margin: 0 0 8px;
+    color:var(--text-hi);
+    text-shadow: 0 2px 16px rgba(0,0,0,0.85), 0 1px 3px rgba(0,0,0,0.9);
+  }
+  .cert-title .accent{ color: var(--cyan-bright); }
+
+  .cert-sub{
+    color: var(--text-mid);
+    font-size:15.5px;
+    margin: 0 0 30px;
+    line-height:1.6;
+    text-shadow: 0 1px 10px rgba(0,0,0,0.85);
+  }
+  .cert-sub strong{ color:var(--text-hi); font-weight:600; }
+
+  .meta-grid{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: rgba(120,220,255,0.16);
+    border:1px solid rgba(120,220,255,0.2);
+    border-radius:12px;
+    overflow:hidden;
+    margin-bottom: 24px;
+  }
+  .meta-cell{
+    background: rgba(5,13,22,0.32);
+    padding: 16px 18px;
+    text-align:left;
+  }
+  .meta-cell .label{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:1.4px;
+    color: var(--text-low);
+    margin-bottom:6px;
+    font-weight:600;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.7);
+  }
+  .meta-cell .value{
+    font-family:'JetBrains Mono', monospace;
+    font-size:14.5px;
+    color: var(--cyan-bright);
+    word-break:break-word;
+    text-shadow: 0 1px 8px rgba(0,0,0,0.8);
+  }
+  .meta-cell.full{ grid-column: 1 / -1; }
+  .meta-cell.full .value{ color: var(--text-hi); font-family:'Inter', sans-serif; font-weight:600; font-size:15px; }
+
+  .verify-hash{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    font-family:'JetBrains Mono', monospace;
+    font-size:12px;
+    color: var(--text-low);
+    letter-spacing:0.4px;
+    flex-wrap:wrap;
+  }
+  .verify-hash svg{ flex:none; }
+
+  .footnote{
+    margin-top:26px;
+    font-size:13px;
+    color: var(--text-low);
+    max-width:520px;
+    line-height:1.7;
+    text-align:center;
+    text-shadow: 0 1px 8px rgba(0,0,0,0.85);
+  }
+  .footnote a{ color: var(--cyan); text-decoration:none; border-bottom:1px dotted rgba(47,217,245,0.4); }
+
+  @media (max-width:560px){
+    .cert-card{ padding: 32px 22px 28px; }
+    .cert-title{ font-size:24px; }
+    .meta-grid{ grid-template-columns: 1fr; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="scene"></canvas>
+<div class="scanline"></div>
+
+<main>
+
+  <!-- Foreground content (the shield + circuit-floor scene renders on the full-page canvas behind) -->
+  <div class="content-col">
+    <div class="eyebrow">Certificate Verification</div>
+
+    <div class="status-pill">
+      <span class="status-dot"></span>
+      <span id="statusText">VERIFIED</span>
+    </div>
+
+    <div class="cert-card">
+      <h1 class="cert-title">Certificate of <span class="accent" id="courseTitle">"Think Like a Hacker"</span></h1>
+      <p class="cert-sub">This certificate has been <strong>verified</strong> and was issued by <strong>Alangh Academy</strong> on <strong id="issueDate">29 July 2026</strong>.</p>
+
+      <div class="meta-grid">
+        <div class="meta-cell">
+          <div class="label">Certificate ID</div>
+          <div class="value" id="certId">AA-TLH-29072026-449030</div>
+        </div>
+        <div class="meta-cell">
+          <div class="label">Status</div>
+          <div class="value" style="color:#4dffb8;" id="statusValue">Verified ✓</div>
+        </div>
+        <div class="meta-cell">
+          <div class="label">Issued On</div>
+          <div class="value" id="issueDate2">29 July 2026</div>
+        </div>
+        <div class="meta-cell">
+          <div class="label">Issuing Body</div>
+          <div class="value" style="color:#eaf6fb;">Alangh Academy</div>
+        </div>
+        <div class="meta-cell full">
+          <div class="label">Program</div>
+          <div class="value" id="programName">Think Like a Hacker — Cybersecurity Foundations</div>
+        </div>
+      </div>
+
+      <div class="verify-hash">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="12" height="12" rx="2" stroke="#5d7d8c" stroke-width="1.2"/><path d="M4 7h6M7 4v6" stroke="#5d7d8c" stroke-width="1"/></svg>
+        Verified via secure QR record &middot; scanned <span id="scanTime">just now</span>
+      </div>
+    </div>
+
+    <p class="footnote">
+      <strong>Every Alangh Academy certificate carries a unique QR-linked record.</b>
+    </p>
+  </div>
+
+</main>
+
+<script>
+  // ---------------------------------------------------------
+  // OPTIONAL: wire this page to real certificate data.
+  // Reads from URL query params so the same static page can
+  // serve any certificate: e.g.
+  // certificate-verification.html?title=Think%20Like%20a%20Hacker
+  //   &program=Think%20Like%20a%20Hacker%20—%20Cybersecurity%20Foundations
+  //   &id=AA-TLH-29072026-449030&date=29%20July%202026&status=verified
+  // Replace this block with a real fetch() call to your backend
+  // (Caffeine AI) when wiring this up for production.
+  // ---------------------------------------------------------
+  (function hydrate(){
+    const params = new URLSearchParams(window.location.search);
+    const data = {
+      title: params.get('title') || 'Think Like a Hacker',
+      program: params.get('program') || 'Think Like a Hacker — Cybersecurity Foundations',
+      id: params.get('id') || 'AA-TLH-29072026-449030',
+      date: params.get('date') || '29 July 2026',
+      status: (params.get('status') || 'verified').toLowerCase()
+    };
+
+    document.getElementById('courseTitle').textContent = '"' + data.title + '"';
+    document.getElementById('programName').textContent = data.program;
+    document.getElementById('certId').textContent = data.id;
+    document.getElementById('issueDate').textContent = data.date;
+    document.getElementById('issueDate2').textContent = data.date;
+
+    const isVerified = data.status === 'verified';
+    document.getElementById('statusText').textContent = isVerified ? 'VERIFIED' : 'NOT FOUND';
+    document.getElementById('statusValue').textContent = isVerified ? 'Verified ✓' : 'Invalid ✕';
+    if(!isVerified){
+      document.getElementById('statusValue').style.color = '#ff6b6b';
+      document.querySelector('.status-pill').style.color = '#ff6b6b';
+      document.querySelector('.status-pill').style.borderColor = 'rgba(255,107,107,0.4)';
+      document.querySelector('.status-dot').style.background = '#ff6b6b';
+      document.querySelector('.cert-sub').innerHTML = 'We could not verify this certificate. Please double-check the link or QR code, or <a href="/contact-us" style="color:#2fd9f5;">contact us</a>.';
+    }
+
+    const now = new Date();
+    document.getElementById('scanTime').textContent = now.toLocaleString(undefined, { hour:'2-digit', minute:'2-digit' });
+  })();
+
+  // ---------------------------------------------------------
+  // Full-page illustrated scene: a low-poly wireframe shield with a
+  // keyhole cutout, floating above a one-point-perspective circuit
+  // floor, with glowing trace paths and scattered city-light
+  // particles — styled after Alangh Academy's hero artwork.
+  // ---------------------------------------------------------
+  (function scene(){
+    const canvas = document.getElementById('scene');
+    const ctx = canvas.getContext('2d');
+    let W, H, DPR;
+
+    let cx, horizonY, beaconY;
+    let shieldX, shieldY, shieldW, shieldH;
+    let shieldPath, keyholePath;
+    let meshNodes = [], meshEdges = [];
+    let particles = [], columns = [];
+    let circuits = [];
+    let orbitNodes = [], orbitCenter = {x:0,y:0};
+
+    function rand(a,b){ return a + Math.random()*(b-a); }
+
+    function buildShieldPath(){
+      const w = shieldW, h = shieldH;
+      const p = new Path2D();
+      p.moveTo(shieldX + w*0.5, shieldY);
+      p.quadraticCurveTo(shieldX + w*0.82, shieldY + h*0.03, shieldX + w*0.96, shieldY + h*0.16);
+      p.lineTo(shieldX + w*0.96, shieldY + h*0.48);
+      p.quadraticCurveTo(shieldX + w*0.94, shieldY + h*0.78, shieldX + w*0.5, shieldY + h);
+      p.quadraticCurveTo(shieldX + w*0.06, shieldY + h*0.78, shieldX + w*0.04, shieldY + h*0.48);
+      p.lineTo(shieldX + w*0.04, shieldY + h*0.16);
+      p.quadraticCurveTo(shieldX + w*0.18, shieldY + h*0.03, shieldX + w*0.5, shieldY);
+      p.closePath();
+      return p;
+    }
+
+    function buildKeyholePath(){
+      const kx = cx, ky = shieldY + shieldH*0.42;
+      const r = shieldW*0.085;
+      const stemW = r*0.62, stemBottom = shieldY + shieldH*0.63;
+      const p = new Path2D();
+      p.arc(kx, ky, r, 0, Math.PI*2);
+      p.moveTo(kx - stemW*0.5, ky + r*0.55);
+      p.lineTo(kx - stemW*0.22, stemBottom);
+      p.lineTo(kx + stemW*0.22, stemBottom);
+      p.lineTo(kx + stemW*0.5, ky + r*0.55);
+      p.closePath();
+      return { path:p, kx, ky, r, stemW, stemBottom };
+    }
+
+    function buildMesh(){
+      meshNodes = [];
+      meshEdges = [];
+      const step = Math.max(16, shieldW/16);
+      const pad = 4;
+      for(let y = shieldY+pad; y < shieldY+shieldH-pad; y += step){
+        for(let x = shieldX+pad; x < shieldX+shieldW-pad; x += step){
+          const jx = x + rand(-step*0.28, step*0.28);
+          const jy = y + rand(-step*0.28, step*0.28);
+          if(ctx.isPointInPath(shieldPath, jx, jy) && !ctx.isPointInPath(keyholePath.path, jx, jy)){
+            meshNodes.push({ x: jx, y: jy, phase: rand(0, Math.PI*2), speed: rand(0.6,1.6) });
+          }
+        }
+      }
+      const maxDist = step*1.55;
+      for(let i=0;i<meshNodes.length;i++){
+        for(let j=i+1;j<meshNodes.length;j++){
+          const a = meshNodes[i], b = meshNodes[j];
+          const d = Math.hypot(a.x-b.x, a.y-b.y);
+          if(d < maxDist) meshEdges.push([i,j]);
+        }
+      }
+    }
+
+    function buildParticles(){
+      particles = [];
+      const count = Math.min(220, Math.floor((W*H)/9000));
+      for(let i=0;i<count;i++){
+        particles.push({
+          x: Math.random()*W,
+          y: Math.random()*horizonY*1.05,
+          r: rand(0.6,1.8),
+          phase: rand(0, Math.PI*2),
+          speed: rand(0.4,1.2),
+          warm: Math.random() < 0.06
+        });
+      }
+      columns = [];
+      const colCount = Math.floor(W/26);
+      for(let i=0;i<colCount;i++){
+        const x = rand(0, W);
+        if(Math.abs(x-cx) < shieldW*0.72) continue; // keep clear behind the shield
+        columns.push({
+          x,
+          top: rand(horizonY*0.08, horizonY*0.75),
+          bottom: horizonY - rand(0,20),
+          alpha: rand(0.05, 0.22)
+        });
+      }
+    }
+
+    function buildOrbitNodes(){
+      orbitCenter = { x: cx, y: shieldY + shieldH*0.5 };
+      const baseR = shieldW*0.58;
+      const rings = [
+        { rFrac:1.02, count:11, speed:0.15,  tilt:0.55 },
+        { rFrac:1.32, count:9,  speed:-0.11, tilt:0.52 },
+        { rFrac:1.62, count:7,  speed:0.085, tilt:0.48 },
+      ];
+      orbitNodes = [];
+      rings.forEach((ring, ri)=>{
+        for(let i=0;i<ring.count;i++){
+          orbitNodes.push({
+            ring: ri,
+            radius: baseR*ring.rFrac,
+            tilt: ring.tilt,
+            angle: (Math.PI*2/ring.count)*i + ri*0.55,
+            speed: ring.speed,
+            phase: rand(0, Math.PI*2),
+            twinkleSpeed: rand(0.7,1.7),
+          });
+        }
+      });
+    }
+
+    function buildCircuits(){
+      circuits = [];
+      const paths = [
+        [[cx,beaconY],[cx-70,beaconY+40],[cx-70,beaconY+90],[cx-160,beaconY+150],[cx-160,beaconY+210],[cx-260,H+40]],
+        [[cx,beaconY],[cx+55,beaconY+55],[cx+55,beaconY+100],[cx+150,beaconY+165],[cx+150,beaconY+220],[cx+250,H+40]],
+      ];
+      paths.forEach(pts=>{
+        let len = 0;
+        const segs = [];
+        for(let i=1;i<pts.length;i++){
+          const d = Math.hypot(pts[i][0]-pts[i-1][0], pts[i][1]-pts[i-1][1]);
+          segs.push(d); len += d;
+        }
+        circuits.push({ pts, segs, len, offset: Math.random()*len });
+      });
+    }
+
+    function pointAlong(circuit, dist){
+      let d = ((dist % circuit.len) + circuit.len) % circuit.len;
+      for(let i=0;i<circuit.segs.length;i++){
+        if(d <= circuit.segs[i]){
+          const t = d/circuit.segs[i];
+          const [x1,y1] = circuit.pts[i], [x2,y2] = circuit.pts[i+1];
+          return [x1+(x2-x1)*t, y1+(y2-y1)*t];
+        }
+        d -= circuit.segs[i];
+      }
+      return circuit.pts[circuit.pts.length-1];
+    }
+
+    function layout(){
+      W = window.innerWidth; H = window.innerHeight;
+      DPR = Math.min(window.devicePixelRatio||1, 2);
+      canvas.width = W*DPR; canvas.height = H*DPR;
+      canvas.style.width = W+'px'; canvas.style.height = H+'px';
+      ctx.setTransform(DPR,0,0,DPR,0,0);
+
+      cx = W/2;
+      horizonY = H*0.74;
+      beaconY = horizonY;
+
+      shieldH = Math.min(H*0.5, W*0.72, 560);
+      shieldW = shieldH*0.82;
+      shieldX = cx - shieldW/2;
+      shieldY = Math.max(horizonY - shieldH - H*0.02, H*0.04);
+
+      shieldPath = buildShieldPath();
+      keyholePath = buildKeyholePath();
+      buildMesh();
+      buildParticles();
+      buildCircuits();
+      buildOrbitNodes();
+    }
+    window.addEventListener('resize', layout);
+    layout();
+
+    function drawBackground(){
+      const g = ctx.createRadialGradient(cx, shieldY+shieldH*0.4, 10, cx, shieldY+shieldH*0.4, Math.max(W,H)*0.75);
+      g.addColorStop(0, '#154b58');
+      g.addColorStop(0.35, '#0a2b35');
+      g.addColorStop(1, '#03141a');
+      ctx.fillStyle = g;
+      ctx.fillRect(0,0,W,H);
+    }
+
+    function drawParticles(t){
+      for(const p of particles){
+        const tw = 0.5 + 0.5*Math.sin(t*p.speed + p.phase);
+        ctx.beginPath();
+        ctx.fillStyle = p.warm ? `rgba(255,150,90,${0.25+0.35*tw})` : `rgba(140,210,255,${0.18+0.45*tw})`;
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+        ctx.fill();
+      }
+      for(const c of columns){
+        const grad = ctx.createLinearGradient(c.x, c.top, c.x, c.bottom);
+        grad.addColorStop(0, 'rgba(80,180,230,0)');
+        grad.addColorStop(1, `rgba(90,190,235,${c.alpha})`);
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(c.x, c.top);
+        ctx.lineTo(c.x, c.bottom);
+        ctx.stroke();
+      }
+    }
+
+    function drawFloor(){
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, horizonY, W, H-horizonY);
+      ctx.clip();
+
+      // horizontal lines, denser near the horizon
+      const rows = 22;
+      for(let i=1;i<=rows;i++){
+        const f = Math.pow(i/rows, 1.7);
+        const y = horizonY + (H-horizonY)*f;
+        const alpha = 0.16*(1-f*0.8);
+        ctx.strokeStyle = `rgba(60,170,220,${Math.max(alpha,0.02)})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+      }
+      // radiating lines from the vanishing point (beacon)
+      const cols = 16;
+      for(let i=0;i<=cols;i++){
+        const bx = (W/cols)*i;
+        ctx.strokeStyle = 'rgba(60,170,220,0.12)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(cx, beaconY);
+        ctx.lineTo(bx, H);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawBeacon(t){
+      const pulse = (t*0.4) % 1;
+      for(let i=0;i<3;i++){
+        const p = (pulse + i/3) % 1;
+        const rx = 14 + p*130, ry = rx*0.32;
+        ctx.strokeStyle = `rgba(120,230,255,${0.4*(1-p)})`;
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.ellipse(cx, beaconY, rx, ry, 0, 0, Math.PI*2);
+        ctx.stroke();
+      }
+      const g = ctx.createRadialGradient(cx,beaconY,0,cx,beaconY,26);
+      g.addColorStop(0,'rgba(200,245,255,0.9)');
+      g.addColorStop(1,'rgba(120,230,255,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(cx,beaconY,26,0,Math.PI*2); ctx.fill();
+    }
+
+    function drawCircuits(t){
+      circuits.forEach(c=>{
+        ctx.strokeStyle = 'rgba(70,190,235,0.35)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        c.pts.forEach((pt,i)=> i===0 ? ctx.moveTo(pt[0],pt[1]) : ctx.lineTo(pt[0],pt[1]));
+        ctx.stroke();
+
+        // traveling pulse of light
+        const dist = (t*90 + c.offset);
+        const [px,py] = pointAlong(c, dist);
+        const g = ctx.createRadialGradient(px,py,0,px,py,10);
+        g.addColorStop(0,'rgba(210,250,255,0.95)');
+        g.addColorStop(1,'rgba(120,230,255,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(px,py,10,0,Math.PI*2); ctx.fill();
+
+        c.pts.forEach(pt=>{
+          ctx.fillStyle = 'rgba(140,220,255,0.7)';
+          ctx.beginPath(); ctx.arc(pt[0],pt[1],2,0,Math.PI*2); ctx.fill();
+        });
+      });
+    }
+
+    function drawShieldMesh(t){
+      ctx.save();
+      ctx.clip(shieldPath);
+
+      for(const [i,j] of meshEdges){
+        const a = meshNodes[i], b = meshNodes[j];
+        ctx.strokeStyle = 'rgba(110,220,250,0.3)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+      }
+      for(const n of meshNodes){
+        const tw = 0.5+0.5*Math.sin(t*n.speed + n.phase);
+        ctx.save();
+        ctx.shadowColor = 'rgba(150,235,255,0.9)';
+        ctx.shadowBlur = 6+4*tw;
+        ctx.fillStyle = `rgba(190,245,255,${0.6+0.4*tw})`;
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, 2.2, 0, Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // structural accent lines (spine + cross-brace), like the reference emblem
+      ctx.strokeStyle = 'rgba(140,225,255,0.28)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(cx, shieldY); ctx.lineTo(cx, shieldY+shieldH);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(shieldX+shieldW*0.06, shieldY+shieldH*0.32);
+      ctx.lineTo(shieldX+shieldW*0.94, shieldY+shieldH*0.32);
+      ctx.stroke();
+
+      ctx.restore();
+
+      // bold outer outline with glow (triple pass for a thicker, larger halo)
+      ctx.save();
+      ctx.shadowColor = 'rgba(60,190,235,0.85)';
+      ctx.shadowBlur = 70;
+      ctx.strokeStyle = 'rgba(90,200,240,0.4)';
+      ctx.lineWidth = 10;
+      ctx.stroke(shieldPath);
+      ctx.shadowBlur = 42;
+      ctx.strokeStyle = 'rgba(110,215,250,0.65)';
+      ctx.lineWidth = 5;
+      ctx.stroke(shieldPath);
+      ctx.shadowBlur = 18;
+      ctx.strokeStyle = 'rgba(170,240,255,0.95)';
+      ctx.lineWidth = 2.4;
+      ctx.stroke(shieldPath);
+      ctx.restore();
+
+      // soft vertical beam rising from the shield tip
+      const beam = ctx.createLinearGradient(cx, 0, cx, shieldY);
+      beam.addColorStop(0, 'rgba(150,230,255,0)');
+      beam.addColorStop(1, 'rgba(150,230,255,0.22)');
+      ctx.strokeStyle = beam;
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(cx, Math.max(0, shieldY-H*0.28));
+      ctx.lineTo(cx, shieldY);
+      ctx.stroke();
+
+      // keyhole cutout
+      ctx.save();
+      ctx.fillStyle = 'rgba(3,7,12,0.92)';
+      ctx.fill(keyholePath.path);
+      ctx.shadowColor = 'rgba(150,230,255,0.7)';
+      ctx.shadowBlur = 10;
+      ctx.strokeStyle = 'rgba(180,235,255,0.85)';
+      ctx.lineWidth = 1.6;
+      ctx.stroke(keyholePath.path);
+      ctx.restore();
+    }
+
+    function drawOrbitNodes(t){
+      const pos = orbitNodes.map(n=>{
+        const a = n.angle + t*n.speed;
+        return {
+          x: orbitCenter.x + n.radius*Math.cos(a),
+          y: orbitCenter.y + n.radius*Math.sin(a)*n.tilt,
+          ring: n.ring,
+          twinkle: 0.5+0.5*Math.sin(t*n.twinkleSpeed + n.phase)
+        };
+      });
+
+      for(let i=0;i<pos.length;i++){
+        for(let j=i+1;j<pos.length;j++){
+          const p = pos[i], q = pos[j];
+          const d = Math.hypot(p.x-q.x, p.y-q.y);
+          const maxD = shieldW*0.38;
+          if(d < maxD){
+            ctx.strokeStyle = `rgba(130,230,255,${0.24*(1-d/maxD)})`;
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.moveTo(p.x,p.y); ctx.lineTo(q.x,q.y); ctx.stroke();
+          }
+        }
+      }
+
+      for(const p of pos){
+        ctx.save();
+        ctx.shadowColor = 'rgba(140,235,255,1)';
+        ctx.shadowBlur = 16 + 10*p.twinkle;
+        ctx.fillStyle = `rgba(200,245,255,${0.7+0.3*p.twinkle})`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 3.4, 0, Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    function drawShieldAura(t){
+      // big soft ambient glow that breathes around the whole shield
+      const pulse = 0.5+0.5*Math.sin(t*0.55);
+      const r = shieldW*(1.15 + 0.26*pulse);
+      const g = ctx.createRadialGradient(
+        orbitCenter.x, orbitCenter.y, shieldW*0.12,
+        orbitCenter.x, orbitCenter.y, r
+      );
+      g.addColorStop(0,   'rgba(20,150,175,0.32)');
+      g.addColorStop(0.45,'rgba(12,105,130,0.20)');
+      g.addColorStop(0.75,'rgba(8,70,90,0.10)');
+      g.addColorStop(1,   'rgba(6,40,55,0)');
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(orbitCenter.x, orbitCenter.y, r, 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+
+      // slow-pulsing dark-cyan glow rings encircling the shield
+      for(let i=0;i<3;i++){
+        const phase = (t*0.12 + i/3) % 1;
+        const ringR = shieldW*(0.72 + phase*0.9);
+        const alpha = 0.22*(1-phase);
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.shadowColor = 'rgba(20,150,180,0.9)';
+        ctx.shadowBlur = 50;
+        ctx.strokeStyle = `rgba(25,150,175,${alpha})`;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.ellipse(orbitCenter.x, orbitCenter.y, ringR, ringR*0.85, 0, 0, Math.PI*2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    let start = performance.now();
+    function draw(now){
+      const t = (now-start)/1000;
+      ctx.clearRect(0,0,W,H);
+      drawBackground();
+      drawParticles(t);
+      drawFloor();
+      drawCircuits(t);
+      drawBeacon(t);
+      drawShieldAura(t);
+      drawShieldMesh(t);
+      drawOrbitNodes(t);
+      requestAnimationFrame(draw);
+    }
+    requestAnimationFrame(draw);
+  })();
+</script>
+
+</body>
+</html>
